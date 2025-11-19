@@ -23,9 +23,6 @@ export default function Home() {
     name: string;
     data: any[][];
   } | null>(null);
-  const [templateData, setTemplateData] = useState<{
-    [sheetName: string]: any[][];
-  } | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -57,42 +54,37 @@ export default function Home() {
     }
   };
 
-  const handleOpenEditor = async () => {
-    try {
-      const response = await ky.get("/api/template-json").json<{
-        success: boolean;
-        data: { [sheetName: string]: any[][] };
-        sheetNames: string[];
-      }>();
+  const handleOpenEditor = () => {
+    // 제공된 데이터만 사용: 분류, 소분류, 키코드, ko-KR, en-US, ja-JP, zh-Hans, zh-Hant
+    const initialData = [
+      [
+        "분류",
+        "소분류",
+        "키코드",
+        "ko-KR",
+        "en-US",
+        "ja-JP",
+        "zh-Hans",
+        "zh-Hant",
+      ],
+      ["공통", "공통", "확인", "확인", "Confirm", "確認", "确认", "確認"],
+    ];
 
-      if (response.success) {
-        setTemplateData(response.data);
-        // 첫 번째 시트를 편집 모드로 열기
-        const firstSheetName = response.sheetNames[0];
-        setEditingSheet({
-          name: firstSheetName,
-          data: response.data[firstSheetName],
-        });
-        setEditMode(true);
-      }
-    } catch (err: any) {
-      setError("템플릿 로드 중 오류가 발생했습니다.");
-    }
+    setEditingSheet({
+      name: "",
+      data: initialData,
+    });
+    setEditMode(true);
   };
 
   const handleSaveSheet = async (sheetData: any[][]) => {
-    if (!editingSheet || !templateData) return;
-
-    // 현재 시트 데이터 업데이트
-    const updatedData = { ...templateData };
-    updatedData[editingSheet.name] = sheetData;
-    setTemplateData(updatedData);
+    if (!editingSheet) return;
 
     // 서버로 데이터 전송하여 Excel 파일 생성
     try {
       const response = await ky
         .post("/api/create-excel", {
-          json: { sheets: updatedData },
+          json: { sheets: { Sheet1: sheetData } },
         })
         .blob();
 
@@ -113,7 +105,6 @@ export default function Home() {
   const handleCancelEdit = () => {
     setEditMode(false);
     setEditingSheet(null);
-    setTemplateData(null);
   };
 
   const handleConvert = async () => {
@@ -227,7 +218,7 @@ export default function Home() {
             onClick={handleOpenEditor}
             className="template-button edit-button"
           >
-            ✏️ 템플릿 편집하기
+            ✏️ 직접 편집하기
           </button>
         </div>
 
@@ -284,27 +275,6 @@ export default function Home() {
 
         {editMode && editingSheet && (
           <div className="editor-section">
-            <h3>템플릿 편집: {editingSheet.name}</h3>
-            {templateData && (
-              <div className="sheet-selector">
-                {Object.keys(templateData).map((sheetName) => (
-                  <button
-                    key={sheetName}
-                    onClick={() =>
-                      setEditingSheet({
-                        name: sheetName,
-                        data: templateData[sheetName],
-                      })
-                    }
-                    className={`sheet-tab ${
-                      editingSheet.name === sheetName ? "active" : ""
-                    }`}
-                  >
-                    {sheetName}
-                  </button>
-                ))}
-              </div>
-            )}
             <ExcelEditor
               initialData={editingSheet.data}
               onSave={handleSaveSheet}
@@ -349,23 +319,20 @@ export default function Home() {
           <h3>사용 방법</h3>
           <ul>
             <li>
-              먼저 "템플릿 Excel 다운로드" 버튼을 클릭하여 템플릿 파일을
-              다운로드하세요.
-            </li>
-            <li>템플릿 파일을 열어 번역 내용을 입력한 후 저장하세요.</li>
-            <li>
-              저장한 Excel 파일을 업로드하면 자동으로 JSON 파일로 변환됩니다.
+              "직접 편집하기" 버튼을 클릭하여 웹에서 바로 편집하거나, "템플릿
+              Excel 다운로드" 버튼으로 템플릿을 다운로드하여 편집할 수 있습니다.
             </li>
             <li>
-              Excel 파일의 모든 시트가 자동으로 감지되어 처리됩니다. 각 시트에는
-              분류, 소분류, 키코드 컬럼과 언어별 컬럼(ko-KR, en-US, ja-JP,
-              zh-Hans, zh-Hant)이 필요합니다.
+              Excel 파일에는 분류, 소분류, 키코드 컬럼과 언어별 컬럼(ko-KR,
+              en-US, ja-JP, zh-Hans, zh-Hant)이 필요합니다.
             </li>
             <li>
-              시트 이름이 폴더명으로 사용되며, 각 시트별로 언어별 JSON 파일이
-              생성됩니다.
+              편집한 Excel 파일을 업로드하면 자동으로 JSON 파일로 변환됩니다.
             </li>
-            <li>변환된 JSON 파일은 ZIP 파일로 다운로드됩니다.</li>
+            <li>
+              변환된 JSON 파일은 화면에서 확인하거나 ZIP 파일로 다운로드할 수
+              있습니다.
+            </li>
           </ul>
         </div>
       </div>
