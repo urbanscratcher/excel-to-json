@@ -23,15 +23,54 @@ export default function Home() {
     name: string;
     data: any[][];
   } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      setFile(selectedFile);
-      setError(null);
-      setSuccess(false);
-      setJsonData(null);
-      setCopiedKey(null);
+      processFile(selectedFile);
+    }
+  };
+
+  const processFile = (selectedFile: File) => {
+    // Excel 파일 확장자 확인
+    const validExtensions = [".xlsx", ".xls"];
+    const fileExtension = selectedFile.name
+      .substring(selectedFile.name.lastIndexOf("."))
+      .toLowerCase();
+
+    if (!validExtensions.includes(fileExtension)) {
+      setError("Excel 파일(.xlsx, .xls)만 업로드 가능합니다.");
+      return;
+    }
+
+    setFile(selectedFile);
+    setError(null);
+    setSuccess(false);
+    setJsonData(null);
+    setCopiedKey(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      processFile(droppedFile);
     }
   };
 
@@ -222,7 +261,12 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="upload-area">
+        <div
+          className={`upload-area ${isDragOver ? "drag-over" : ""}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <input
             id="file-input"
             type="file"
@@ -231,7 +275,17 @@ export default function Home() {
             className="file-input"
           />
           <label htmlFor="file-input" className="file-label">
-            {file ? file.name : "Excel 파일 선택"}
+            {file ? (
+              <>
+                <span className="file-icon">📄</span>
+                <span>{file.name}</span>
+              </>
+            ) : (
+              <>
+                <span className="file-icon">📎</span>
+                <span>Excel 파일을 선택하거나 여기에 드롭하세요</span>
+              </>
+            )}
           </label>
         </div>
 
@@ -369,13 +423,26 @@ export default function Home() {
           margin-bottom: 24px;
         }
 
+        .upload-area.drag-over {
+          opacity: 0.8;
+        }
+
+        .upload-area.drag-over .file-label {
+          background: #e8ebff;
+          border-color: #764ba2;
+          transform: scale(1.02);
+        }
+
         .file-input {
           display: none;
         }
 
         .file-label {
-          display: block;
-          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          padding: 40px 20px;
           border: 2px dashed #667eea;
           border-radius: 12px;
           text-align: center;
@@ -384,11 +451,18 @@ export default function Home() {
           background: #f8f9ff;
           color: #667eea;
           font-weight: 500;
+          min-height: 120px;
+          justify-content: center;
         }
 
         .file-label:hover {
           background: #f0f2ff;
           border-color: #764ba2;
+        }
+
+        .file-icon {
+          font-size: 48px;
+          line-height: 1;
         }
 
         .file-info {
