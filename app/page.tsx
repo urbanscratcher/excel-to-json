@@ -16,6 +16,7 @@ export default function Home() {
   const [success, setSuccess] = useState(false);
   const [jsonData, setJsonData] = useState<JsonData | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [downloadZip, setDownloadZip] = useState(true);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -36,6 +37,7 @@ export default function Home() {
       const url = window.URL.createObjectURL(response);
       const a = document.createElement("a");
       a.href = url;
+
       a.download = "i18n-template.xlsx";
       document.body.appendChild(a);
       a.click();
@@ -61,21 +63,23 @@ export default function Home() {
       const formData = new FormData();
       formData.append("file", file);
 
-      // ZIP 파일 다운로드
-      const zipResponse = await ky
-        .post("/api/convert", {
-          body: formData,
-        })
-        .blob();
+      // ZIP 파일 다운로드 (체크박스가 체크되어 있을 때만)
+      if (downloadZip) {
+        const zipResponse = await ky
+          .post("/api/convert", {
+            body: formData,
+          })
+          .blob();
 
-      const zipUrl = window.URL.createObjectURL(zipResponse);
-      const zipLink = document.createElement("a");
-      zipLink.href = zipUrl;
-      zipLink.download = "i18n-json-files.zip";
-      document.body.appendChild(zipLink);
-      zipLink.click();
-      window.URL.revokeObjectURL(zipUrl);
-      document.body.removeChild(zipLink);
+        const zipUrl = window.URL.createObjectURL(zipResponse);
+        const zipLink = document.createElement("a");
+        zipLink.href = zipUrl;
+        zipLink.download = "i18n-json-files.zip";
+        document.body.appendChild(zipLink);
+        zipLink.click();
+        window.URL.revokeObjectURL(zipUrl);
+        document.body.removeChild(zipLink);
+      }
 
       // JSON 데이터 가져오기
       const jsonResponse = await ky
@@ -177,9 +181,22 @@ export default function Home() {
 
         {success && (
           <div className="success">
-            ✅ 변환이 완료되었습니다! ZIP 파일이 다운로드되었습니다.
+            ✅ 변환이 완료되었습니다!
+            {downloadZip && " ZIP 파일이 다운로드되었습니다."}
           </div>
         )}
+
+        <div className="download-option">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={downloadZip}
+              onChange={(e) => setDownloadZip(e.target.checked)}
+              className="checkbox-input"
+            />
+            <span> ZIP 파일 다운로드</span>
+          </label>
+        </div>
 
         <button
           onClick={handleConvert}
