@@ -38,7 +38,8 @@ export default function ExcelEditor({
     if (hotTableRef.current) {
       const hotInstance = hotTableRef.current.hotInstance;
       const rowCount = hotInstance.countRows();
-      hotInstance.alter("insert_row", rowCount);
+      // 마지막 행 아래에 새 행 추가
+      hotInstance.alter("insert_row_below", rowCount - 1);
     }
   };
 
@@ -46,7 +47,8 @@ export default function ExcelEditor({
     if (hotTableRef.current) {
       const hotInstance = hotTableRef.current.hotInstance;
       const colCount = hotInstance.countCols();
-      hotInstance.alter("insert_col", colCount);
+      // 마지막 열 뒤에 새 열 추가
+      hotInstance.alter("insert_col_end", colCount - 1);
     }
   };
 
