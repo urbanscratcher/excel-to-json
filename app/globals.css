@@ -1,4 +1,5 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+@import "handsontable/dist/handsontable.full.min.css";
 
 * {
   box-sizing: border-box;
