@@ -54,11 +54,13 @@ function convertSheetToJson(
 
   // 각 행 처리
   sheetData.forEach((row: any) => {
-    const 분류 = String(row["분류"] || "").trim();
-    const 소분류 = String(row["소분류"] || "").trim();
+    let 분류 = String(row["분류"] || "").trim();
+    let 소분류 = String(row["소분류"] || "").trim();
     let 키코드 = String(row["키코드"] || "").trim();
 
-    // 키코드의 콜론(:)을 언더바(_)로 변환
+    // 분류, 소분류, 키코드의 콜론(:)을 언더바(_)로 변환
+    분류 = 분류.replace(/:/g, "_");
+    소분류 = 소분류.replace(/:/g, "_");
     키코드 = 키코드.replace(/:/g, "_");
 
     // 빈 키는 스킵
