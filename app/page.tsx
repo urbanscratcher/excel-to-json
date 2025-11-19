@@ -3,11 +3,19 @@
 import ky from "ky";
 import { useState } from "react";
 
+interface JsonData {
+  [prefix: string]: {
+    [lang: string]: any;
+  };
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [jsonData, setJsonData] = useState<JsonData | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -15,6 +23,8 @@ export default function Home() {
       setFile(selectedFile);
       setError(null);
       setSuccess(false);
+      setJsonData(null);
+      setCopiedKey(null);
     }
   };
 
@@ -45,26 +55,38 @@ export default function Home() {
     setIsConverting(true);
     setError(null);
     setSuccess(false);
+    setJsonData(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await ky
+      // ZIP 파일 다운로드
+      const zipResponse = await ky
         .post("/api/convert", {
           body: formData,
         })
         .blob();
 
-      // ZIP 파일 다운로드
-      const url = window.URL.createObjectURL(response);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "i18n-json-files.zip";
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const zipUrl = window.URL.createObjectURL(zipResponse);
+      const zipLink = document.createElement("a");
+      zipLink.href = zipUrl;
+      zipLink.download = "i18n-json-files.zip";
+      document.body.appendChild(zipLink);
+      zipLink.click();
+      window.URL.revokeObjectURL(zipUrl);
+      document.body.removeChild(zipLink);
+
+      // JSON 데이터 가져오기
+      const jsonResponse = await ky
+        .post("/api/convert-json", {
+          body: formData,
+        })
+        .json<{ success: boolean; data: JsonData }>();
+
+      if (jsonResponse.success) {
+        setJsonData(jsonResponse.data);
+      }
 
       setSuccess(true);
       setFile(null);
@@ -84,6 +106,36 @@ export default function Home() {
       }
     } finally {
       setIsConverting(false);
+    }
+  };
+
+  const handleCopyCode = async (text: string, key: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 2000);
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          setCopiedKey(key);
+          setTimeout(() => setCopiedKey(null), 2000);
+        } catch (err) {
+          console.error("복사 실패:", err);
+        }
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error("복사 실패:", err);
     }
   };
 
@@ -137,6 +189,38 @@ export default function Home() {
           {isConverting ? "변환 중..." : "변환하기"}
         </button>
 
+        {jsonData && (
+          <div className="json-results">
+            <h3>생성된 JSON 코드</h3>
+            {Object.entries(jsonData).map(([prefix, langData]) => (
+              <div key={prefix} className="json-section">
+                <h4 className="json-section-title">{prefix}</h4>
+                {Object.entries(langData).map(([lang, data]) => {
+                  const jsonString = JSON.stringify(data, null, 2);
+                  const copyKey = `${prefix}-${lang}`;
+                  const isCopied = copiedKey === copyKey;
+                  return (
+                    <div key={lang} className="json-item">
+                      <div className="json-header">
+                        <span className="json-filename">{lang}.json</span>
+                        <button
+                          onClick={() => handleCopyCode(jsonString, copyKey)}
+                          className="copy-button"
+                        >
+                          {isCopied ? "✅ 복사됨!" : "📋 복사"}
+                        </button>
+                      </div>
+                      <pre className="json-code">
+                        <code>{jsonString}</code>
+                      </pre>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="info">
           <h3>사용 방법</h3>
           <ul>
@@ -165,7 +249,7 @@ export default function Home() {
       <style jsx>{`
         .container {
           width: 100%;
-          max-width: 600px;
+          max-width: 900px;
         }
 
         .card {
@@ -289,6 +373,86 @@ export default function Home() {
           background: #f8f9ff;
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .json-results {
+          margin-top: 32px;
+          padding-top: 24px;
+          border-top: 1px solid #eee;
+        }
+
+        .json-results h3 {
+          font-size: 20px;
+          font-weight: 600;
+          color: #333;
+          margin-bottom: 20px;
+        }
+
+        .json-section {
+          margin-bottom: 32px;
+        }
+
+        .json-section-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #667eea;
+          margin-bottom: 16px;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #667eea;
+        }
+
+        .json-item {
+          margin-bottom: 24px;
+          background: #f8f9ff;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .json-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          background: #667eea;
+          color: white;
+        }
+
+        .json-filename {
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .copy-button {
+          padding: 6px 12px;
+          background: white;
+          color: #667eea;
+          border: none;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .copy-button:hover {
+          background: #f0f2ff;
+          transform: translateY(-1px);
+        }
+
+        .json-code {
+          margin: 0;
+          padding: 16px;
+          background: #1e1e1e;
+          color: #d4d4d4;
+          overflow-x: auto;
+          font-size: 13px;
+          line-height: 1.6;
+          font-family: "Consolas", "Monaco", "Courier New", monospace;
+        }
+
+        .json-code code {
+          display: block;
+          white-space: pre;
         }
 
         .info {
